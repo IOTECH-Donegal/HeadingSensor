@@ -17,7 +17,7 @@ class UBXParser():
     def __init__(self):
 
         # Switch this on for verbose processing
-        self.debug = 1
+        self.debug = 0
 
         # Timers for each sentence, check to see if data stale when calling this class
         self.posllh_TOW = ''
@@ -37,6 +37,8 @@ class UBXParser():
         self.new_heading = 0
 
     def ubx_parser(self, byte3, byte4, ubx_payload):
+        # For error checking and logging
+        this_function = 'UBXParser:ubx_parser'
         # Check if a valid UBX class
         if byte3 in ubc.UBX_CLASS:
             # Check if class = NAV (x01)
@@ -50,7 +52,7 @@ class UBXParser():
                         # Now let the calling program know there is a new heading
                         self.new_heading = 1
                         if self.debug == 1:
-                            print(f'UBX-NAV-RELPOSNED {self.heading, self.relposned_TOW}')
+                            print(f'{this_function} UBX-NAV-RELPOSNED {self.heading, self.relposned_TOW}')
                     # Check for NAV-POSLLH (x02)
                     elif byte4 == b"\x02":
                         # Now parse
@@ -59,20 +61,26 @@ class UBXParser():
                         # Now let the calling program know there is a new position
                         self.new_position = 1
                         if self.debug == 1:
-                            print(f'UBX-NAV-POSLLH {self.longitude, self.latitude, self.altitude, self.posllh_TOW}')
+                            print(f'{this_function} UBX-NAV-POSLLH {self.longitude, self.latitude, self.altitude, self.posllh_TOW}')
                     else:
-                        print(f'No message definition for {byte3, byte4}!!')
+                        print(f'{this_function} No message definition for {byte3, byte4}!!')
             # Check if class = SEC (x27)
             if ubc.UBX_CLASS[byte3] == 'SEC':
                 if byte4 in ubm.UBX_SEC:
                     # Check for SEC-UNIQID (x03)
                     if byte4 == b"\x03":
-                        # Now parse
+                        # Now parse and save the unique ID as a property
                         self.unique_id = sec_uniqid(ubx_payload)
+
                         if self.debug == 1:
-                            if ubx.Sensors.UBLOX[self.unique_id] == "Heading":
-                                print(f'UBX-SEC-UNIQID {self.unique_id} verified as heading sensor')
-                        else:
-                            exit(-1)
+                            if ubx.Sensors.UBLOX[self.unique_id] == "MovingBase":
+                                print(f'{this_function} UBX-SEC-UNIQID {self.unique_id} verified as moving base')
+                            elif ubx.Sensors.UBLOX[self.unique_id] == "Heading":
+                                print(f'{this_function} UBX-SEC-UNIQID {self.unique_id} verified as heading sensor')
+                            elif ubx.Sensors.UBLOX[self.unique_id] == "Roll":
+                                print(f'{this_function} UBX-SEC-UNIQID {self.unique_id} verified as roll sensor')
+                            else:
+                                print('Wrong Sensor')
+                                exit(-1)
         else:
-            print(f'No class definition for {byte3}')
+            print(f'{this_function} No class definition for {byte3}')

@@ -23,12 +23,19 @@ from nmea.ths import ths
 from nmea.hdt import hdt
 from nmea.Utilities import udp_sender
 
+# Utilities to find UBX GNSS
+import SerialUtils
+
 
 print('***** Heading Sensor *****')
 print('Accepts mixed UBX-RELPOSNED, UBX_POSLLH from a serial port:')
 print('1. Extracts heading, position, accuracy information and logs')
 print('2. Outputs a NMEA sentence for other applications to use: only implemented to network in this version).')
 print('3. Outputs to an IP address and port for other applications to use.')
+
+# Find the com port for the heading sensor
+heading_com_port = SerialUtils.serial_mapper('Heading')
+print(f'COM Port {heading_com_port}')
 
 # Instantiate an object to parse UBX
 myUBX = UBXParser()
@@ -45,7 +52,7 @@ MCAST_PORT = 5007
 # Configure the serial port
 Serial_Port1 = serial.Serial(
     # For Windows
-    port='COM10',
+    port=heading_com_port,
     # For RPi
     #port='/dev/ttySC1',
     baudrate=115200,
@@ -58,11 +65,10 @@ Serial_Port1.flushInput()
 
 # Main Loop
 try:
-    print("press [ctrl][c] at any time to exit...")
+    # For error checking and logging
+    this_function = 'HeadingSensor'
 
-    # Find the serial number of the UBlox device, send the query, it will be the first sentence back
-    ubx_sec_uniqid_query = b'\xB5\x62\x27\x03\x00\x00\x2A\xA5'
-    Serial_Port1.write(ubx_sec_uniqid_query)
+    print("press [ctrl][c] at any time to exit...")
 
     # Continuous loop until [ctrl][c]
     while True:
@@ -70,6 +76,7 @@ try:
         byte1 = Serial_Port1.read(1)
         if len(byte1) <1:
             break
+
         # Check for UBX header = xB5 and X62, Unicode = µb
         if byte1 == b"\xb5":
             byte2 = Serial_Port1.read(1)
@@ -117,19 +124,19 @@ try:
                         udp_sender(MCAST_GRP, MCAST_PORT, bytes(nmea_full_ths, 'utf-8'))
                         udp_sender(MCAST_GRP, MCAST_PORT, bytes(nmea_full_hdt, 'utf-8'))
                 else:
-                    print('Bad CRC')
+                    print(f'{this_function} Bad CRC')
 
         # Check for NMEA0183, leading with a $ symbol
         elif byte1 == b"\x24":
             nmea_full_bytes = Serial_Port1.readline()
             nmea_full_string = nmea_full_bytes.decode("utf-8")
-            print(f'NMEA: Received {nmea_full_string[0:5]}')
+            print(f'{this_function} NMEA: Received {nmea_full_string[0:5]}')
 
         # Check for AIS, leading with a ! symbol
         elif byte1 == b"\x21":
             nmea_full_bytes = Serial_Port1.readline()
             nmea_full_string = nmea_full_bytes.decode("utf-8")
-            print(f'AIS: Received {nmea_full_string[0:5]}')
+            print(f'{this_function} AIS: Received {nmea_full_string[0:5]}')
 
         # Check for RTCM corrections
         elif byte1 == b"\xd3":
@@ -146,19 +153,19 @@ try:
             # Finally extract the RTCM CRC
             rtcm_crc = Serial_Port1.read(3)
         else:
-            print(f"What is {byte1}")
+            print(f"{this_function} What is {byte1}")
 
 except serial.SerialException as err:
-    print("Serial port error: {0}".format(err))
+    print(f"{this_function} Serial port error: {0}".format(err))
 except OSError as err:
-    print("OS error: {0}".format(err))
+    print(f"{this_function} OS error: {0}".format(err))
 except ValueError as err:
-    print("Value Error error: {0}".format(err))
+    print(f"{this_function} Value Error error: {0}".format(err))
 except KeyboardInterrupt:
     print("\n" + "Caught keyboard interrupt, exiting")
     exit(0)
 except:
-    print("Unexpected error:", sys.exc_info()[0])
+    print(f"{this_function} Unexpected error:", sys.exc_info()[0])
 finally:
     print("Exiting Main Thread")
     exit(0)

@@ -8,11 +8,13 @@ from nmea.Utilities import calculate_crc
 # 2 - mi = Mode Indicator
 # 3 - cs = Checksum
 
+debug = 0
 
 def hdt(headt):
     # Construct a partial sentence, no $ and no CRC
     nmea_partial_sentence = "GPHDT," + headt + ",T"
-    print(nmea_partial_sentence)
+    if debug == 1:
+        print(nmea_partial_sentence)
     # Calculate the CRC
     crc = calculate_crc(nmea_partial_sentence)
 
